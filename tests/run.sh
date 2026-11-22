@@ -49,11 +49,23 @@ check "a single-page app's fallback page isn't reported as exposed files" "! gre
 mkdir -p "$OUT/bin"
 printf '#!/usr/bin/env bash\necho "$*" >> "$NUCLEI_ARGS"\n' > "$OUT/bin/nuclei"
 chmod +x "$OUT/bin/nuclei"
+# A small template folder: web templates aimed at a fixed other port, in each style nuclei's use, and one that isn't.
+T="$OUT/templates/http"
+mkdir -p "$T"
+printf 'id: a\nhttp:\n  - path:\n      - "{{BaseURL}}:4040/jobs/"\n' > "$T/off-port-baseurl.yaml"
+printf 'id: b\nhttp:\n  - raw:\n      - |\n        @Host: {{Host}}:9780\n        GET / HTTP/1.1\n' > "$T/off-port-raw.yaml"
+printf 'id: c\nhttp:\n  - method: GET\n    port: 8443\n    path:\n      - "{{BaseURL}}/"\n' > "$T/off-port-key.yaml"
+printf 'id: d\nhttp:\n  - raw:\n      - |\n        GET /.git/config HTTP/1.1\n        Host: {{Hostname}}\n' > "$T/same-port.yaml"
+printf 'id: e\nssl:\n  - address: "{{Host}}:443"\n' > "$T/web-port-443.yaml"
+export NUCLEI_TEMPLATES_DIR="$OUT/templates"
 PATH="$OUT/bin:$PATH" NUCLEI_ARGS="$OUT/plain.args" bash regen.sh scan -t http://127.0.0.1:18731 -p standard -o "$OUT/plain" > "$OUT/plain.log" 2>&1
 PATH="$OUT/bin:$PATH" NUCLEI_ARGS="$OUT/quiet.args" bash regen.sh scan -t http://127.0.0.1:18731 -p standard --no-oast --web-only -o "$OUT/quiet" > "$OUT/quiet.log" 2>&1
-check "a standard scan runs nuclei with its usual options" "[ -s '$OUT/plain.args' ] && ! grep -qE -- '(^| )-(ni|ept)( |\$)' '$OUT/plain.args'"
+check "a standard scan runs nuclei with its usual options" "[ -s '$OUT/plain.args' ] && ! grep -qE -- '(^| )-(ni|ept|et)( |\$)' '$OUT/plain.args'"
 check "--no-oast turns off nuclei's out-of-band checks" "grep -qE -- '(^| )-ni( |\$)' '$OUT/quiet.args'"
-check "--web-only skips templates that open other ports" "grep -qF -- '-ept tcp,javascript' '$OUT/quiet.args'"
+check "--web-only skips network and javascript templates" "grep -qF -- '-ept tcp,javascript' '$OUT/quiet.args'"
+check "--web-only skips web templates aimed at another port" "grep -qE -- '-et [^ ]*off-port-baseurl' '$OUT/quiet.args' && grep -qF off-port-raw '$OUT/quiet.args' && grep -qF off-port-key '$OUT/quiet.args'"
+check "--web-only keeps web templates that use the site's own port" "! grep -qF same-port '$OUT/quiet.args'"
+check "--web-only keeps templates that only name ports 80 and 443" "! grep -qF web-port-443 '$OUT/quiet.args'"
 
 check "the logo files are what assets/logo/build.py makes" "python3 assets/logo/build.py --check > '$OUT/logo.log' 2>&1"
 

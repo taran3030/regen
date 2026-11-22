@@ -29,7 +29,8 @@ Scan options:
   --no-oast            Skip nuclei's out-of-band checks, which call ProjectDiscovery's
                        public interactsh servers (oast.*). Network monitors flag those.
   --web-only           Skip nuclei templates that connect to ports other than the site's
-                       own (network and javascript). Monitors read those as a port scan.
+                       own: network and javascript templates, and web templates aimed at
+                       a fixed port such as 4040. Monitors read those as a port scan.
 
 Examples:
   regen scan -t https://myapp.azurewebsites.net -p full
@@ -169,6 +170,21 @@ except: pass
     echo "---"
 }
 
+# Web templates that send requests to a fixed port of their own, like {{BaseURL}}:4040 for Spark's UI,
+# open that port on the target even when network templates are off. List the ones that name any port
+# besides 80 and 443 from nuclei's template folder, comma-separated, for -et. The network and javascript
+# folders are left out: -ept covers those.
+off_port_templates() {
+    local dir="${NUCLEI_TEMPLATES_DIR:-$HOME/nuclei-templates}"
+    local fixed='\}\}:[0-9]+|^[[:space:]]+port:[[:space:]]*"?[0-9]+'
+    [ -d "$dir" ] || return 0
+    grep -rlE '\{\{(BaseURL|RootURL|Host|Hostname)\}\}:[0-9]+|^[[:space:]]+port:[[:space:]]*"?[0-9]' \
+        --include='*.yaml' --exclude-dir=network --exclude-dir=javascript "$dir" 2>/dev/null | sort |
+    while read -r f; do
+        grep -oE "$fixed" "$f" | grep -oE '[0-9]+$' | grep -qvxE '80|443' && echo "$f"
+    done | paste -sd, - || true
+}
+
 scan_nuclei() {
     local target="$1"
     local output_dir="$2"
@@ -186,6 +202,16 @@ scan_nuclei() {
     if [ -n "$no_oast" ]; then opts+=(-ni); fi
     if [ -n "$web_only" ]; then opts+=(-ept tcp,javascript); fi
     echo "[regen] nuclei options: ${opts[*]}"
+    if [ -n "$web_only" ]; then
+        # The list comes from the downloaded templates, so get them first if this is the first run.
+        [ -d "${NUCLEI_TEMPLATES_DIR:-$HOME/nuclei-templates}" ] || nuclei -update-templates -silent >/dev/null 2>&1 || true
+        local skip
+        skip=$(off_port_templates)
+        if [ -n "$skip" ]; then
+            opts+=(-et "$skip")
+            echo "[regen] --web-only: also skipping $(tr ',' '\n' <<< "$skip" | wc -l | tr -d ' ') web templates that use another port"
+        fi
+    fi
 
     nuclei -target "$target" "${opts[@]}" \
         -output "$output_dir/nuclei-results.jsonl" \

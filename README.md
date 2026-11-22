@@ -38,7 +38,7 @@ Results go to the output folder (`-o`, default `./regen-results`): one text file
 Two nuclei behaviors look like an attack to a home or office network monitor. Turn them off when you scan from your own machine:
 
 - `--no-oast` skips nuclei's out-of-band checks. Those plant a link to ProjectDiscovery's public interactsh servers (`oast.pro`, `oast.live` and others) and wait for a callback, and monitors flag those servers as malicious.
-- `--web-only` skips nuclei templates that connect to ports other than the site's own, such as SSH or database ports. Monitors read those as a port scan, and behind a CDN they only reach the CDN anyway.
+- `--web-only` skips nuclei templates that connect to ports other than the site's own: the network templates (SSH, databases and so on) and the few web templates aimed at a fixed port, like Spark's UI on 4040. Monitors read those as a port scan, and behind a CDN they only reach the CDN anyway.
 
 ```bash
 ./regen.sh scan -t https://your-site.example -p standard --no-oast --web-only
