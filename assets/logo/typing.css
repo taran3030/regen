@@ -121,5 +121,5 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .rg .rg__k1, .rg .rg__k2, .rg .rg__k3, .rg .rg__k4, .rg .rg__k5, .rg .rg__cursor { animation: none; opacity: 1; transform: none; }
+  .rg .rg__k1, .rg .rg__k2, .rg .rg__k3, .rg .rg__k4, .rg .rg__k5, .rg .rg__cursor { animation: none !important; opacity: 1 !important; transform: none !important; }
 }

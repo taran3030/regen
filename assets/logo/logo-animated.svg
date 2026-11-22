@@ -59,7 +59,7 @@
     100% { opacity: 1; transform: translateX(-840px); }
   }
   @media (prefers-reduced-motion: reduce) {
-    .rg .rg__k1, .rg .rg__k2, .rg .rg__k3, .rg .rg__k4, .rg .rg__k5, .rg .rg__cursor { animation: none; opacity: 1; transform: none; }
+    .rg .rg__k1, .rg .rg__k2, .rg .rg__k3, .rg .rg__k4, .rg .rg__k5, .rg .rg__cursor { animation: none !important; opacity: 1 !important; transform: none !important; }
   }
   </style>
   <path class="rg__r" fill="#E8F6FA" fill-rule="evenodd" d="M0 0H56V20L76 0H152V60H96L56 100V224H0Z"/>

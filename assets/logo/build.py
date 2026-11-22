@@ -166,9 +166,10 @@ def animation_css(mode, states, selector, timing):
 
 
 def reduced_motion(selector):
+    # !important so it also beats .is-armed, which hides the letters while the logo waits to play.
     parts = ", ".join(f"{selector} .rg__k{i}" for i in range(1, len(NAME))) + f", {selector} .rg__cursor"
     return ("@media (prefers-reduced-motion: reduce) {\n"
-            f"  {parts} {{ animation: none; opacity: 1; transform: none; }}\n}}")
+            f"  {parts} {{ animation: none !important; opacity: 1 !important; transform: none !important; }}\n}}")
 
 
 def typing_css():
