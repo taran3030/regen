@@ -44,7 +44,7 @@ Two nuclei behaviors look like an attack to a home or office network monitor. Tu
 ./regen.sh scan -t https://your-site.example -p standard --no-oast --web-only
 ```
 
-The GitHub Action keeps both on, since a CI runner has no monitor to alarm.
+The GitHub Action doesn't use these flags, so it runs every template: a CI runner has no monitor to alarm. If nuclei keeps its templates somewhere other than `~/nuclei-templates`, set `NUCLEI_TEMPLATES_DIR` so `--web-only` can find the ones to skip.
 
 ## In GitHub Actions
 

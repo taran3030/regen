@@ -210,6 +210,8 @@ scan_nuclei() {
         if [ -n "$skip" ]; then
             opts+=(-et "$skip")
             echo "[regen] --web-only: also skipping $(tr ',' '\n' <<< "$skip" | wc -l | tr -d ' ') web templates that use another port"
+        elif [ ! -d "${NUCLEI_TEMPLATES_DIR:-$HOME/nuclei-templates}" ]; then
+            echo "[WARN] --web-only couldn't find nuclei's templates in ${NUCLEI_TEMPLATES_DIR:-$HOME/nuclei-templates}, so web templates aimed at other ports will still run. Set NUCLEI_TEMPLATES_DIR to the folder nuclei uses."
         fi
     fi
 

@@ -66,6 +66,8 @@ check "--web-only skips network and javascript templates" "grep -qF -- '-ept tcp
 check "--web-only skips web templates aimed at another port" "grep -qE -- '-et [^ ]*off-port-baseurl' '$OUT/quiet.args' && grep -qF off-port-raw '$OUT/quiet.args' && grep -qF off-port-key '$OUT/quiet.args'"
 check "--web-only keeps web templates that use the site's own port" "! grep -qF same-port '$OUT/quiet.args'"
 check "--web-only keeps templates that only name ports 80 and 443" "! grep -qF web-port-443 '$OUT/quiet.args'"
+NUCLEI_TEMPLATES_DIR="$OUT/no-templates-here" PATH="$OUT/bin:$PATH" NUCLEI_ARGS="$OUT/blind.args" bash regen.sh scan -t http://127.0.0.1:18731 -p standard --web-only -o "$OUT/blind" > "$OUT/blind.log" 2>&1
+check "--web-only warns when it can't find nuclei's templates to filter" "grep -q '^\[WARN\] --web-only' '$OUT/blind.log'"
 
 check "the logo files are what assets/logo/build.py makes" "python3 assets/logo/build.py --check > '$OUT/logo.log' 2>&1"
 
