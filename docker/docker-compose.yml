@@ -1,0 +1,12 @@
+services:
+  regen:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    network_mode: host
+    volumes:
+      - ../skills:/regen/skills
+      - ./results:/regen/results
+    environment:
+      - REGEN_TARGET=${REGEN_TARGET}
+      - REGEN_SCOPE=${REGEN_SCOPE}

@@ -1,0 +1,10 @@
+# Scan results stay on your machine.
+regen-results/
+reports/
+security/scans/
+*.sarif.json
+
+node_modules/
+__pycache__/
+*.pyc
+.DS_Store

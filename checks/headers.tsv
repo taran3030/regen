@@ -1,0 +1,10 @@
+# Security headers Regen expects on every page.
+# One check per line: header name, severity when it's missing, and why it matters. Tab-separated.
+# To add a check, add a line. CI runs every line against a test server (tests/run.sh).
+Strict-Transport-Security	high	Without HSTS, a first visit over plain HTTP can be downgraded or intercepted.
+Content-Security-Policy	high	Without a CSP, any injected script runs with the page's full access.
+X-Content-Type-Options	medium	Without nosniff, browsers may run uploaded or mislabeled files as scripts.
+X-Frame-Options	medium	Without it, older browsers let other sites frame the page (clickjacking). CSP frame-ancestors covers current ones.
+Referrer-Policy	medium	Without it, full URLs (and anything in them) leak to other sites in the Referer header.
+Permissions-Policy	medium	Without it, the page and anything it embeds can ask for the camera, microphone or location.
+X-XSS-Protection	low	Legacy browsers only; modern ones ignore it. Set to 0 or 1; mode=block.

@@ -1,0 +1,33 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Shell syntax
+        run: bash -n regen.sh && bash -n tests/run.sh
+      - name: Python compiles
+        run: python3 -m py_compile engine/*.py scanners/*.py tests/fixture_server.py
+      - name: Every check, against test servers
+        run: bash tests/run.sh
+      - name: The severity gate
+        run: |
+          python3 - <<'PY'
+          import json, subprocess
+          sarif = {"runs": [{"results": [{"message": {"text": "x"}, "properties": {"severity": "medium"}}]}]}
+          json.dump(sarif, open("/tmp/s.json", "w"))
+          gate = lambda t: subprocess.run(["python3", "engine/gate.py", "/tmp/s.json", t]).returncode
+          assert gate("high") == 0, "a medium finding shouldn't fail at high"
+          assert gate("medium") == 1, "a medium finding should fail at medium"
+          assert gate("none") == 0
+          print("gate ok")
+          PY

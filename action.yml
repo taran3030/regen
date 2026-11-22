@@ -1,0 +1,73 @@
+name: Regen security scan
+description: Scan a deployed site for missing security headers, exposed files and known vulnerabilities, and audit its dependencies. Writes SARIF for GitHub Code Scanning.
+author: Axolotl Labs
+branding:
+  icon: shield
+  color: purple
+
+inputs:
+  target:
+    description: The URL to scan. Only scan sites you own or are allowed to test.
+    required: true
+  profile:
+    description: "quick (headers, exposed paths, dependencies) or standard (quick plus nuclei)."
+    required: false
+    default: standard
+  project-dir:
+    description: The project folder to audit dependencies in. Leave empty to skip the dependency audit.
+    required: false
+    default: "."
+  output-dir:
+    description: Where results go.
+    required: false
+    default: regen-results
+  fail-on:
+    description: "Fail the job when a finding is at least this severe: critical, high, medium, low, or none."
+    required: false
+    default: high
+
+outputs:
+  sarif:
+    description: Path to the SARIF file, for github/codeql-action/upload-sarif.
+    value: ${{ steps.scan.outputs.sarif }}
+
+runs:
+  using: composite
+  steps:
+    - name: Install nuclei
+      if: inputs.profile != 'quick'
+      shell: bash
+      env:
+        # Kept current by .github/workflows/update.yml, which opens a PR when nuclei ships a release.
+        NUCLEI_VERSION: "3.11.1"
+      run: |
+        set -euo pipefail
+        url="https://github.com/projectdiscovery/nuclei/releases/download/v${NUCLEI_VERSION}/nuclei_${NUCLEI_VERSION}_linux_amd64.zip"
+        curl -sSfL "$url" -o /tmp/nuclei.zip
+        unzip -q -o /tmp/nuclei.zip nuclei -d /tmp/nuclei
+        sudo install /tmp/nuclei/nuclei /usr/local/bin/nuclei
+        # Templates are fetched fresh on every run, so new detections arrive without a Regen release.
+        nuclei -update-templates -silent || true
+
+    - name: Scan
+      id: scan
+      shell: bash
+      env:
+        TARGET: ${{ inputs.target }}
+        PROFILE: ${{ inputs.profile }}
+        PROJECT_DIR: ${{ inputs.project-dir }}
+        OUTPUT_DIR: ${{ inputs.output-dir }}
+      run: |
+        set -euo pipefail
+        args=(scan -t "$TARGET" -p "$PROFILE" -o "$OUTPUT_DIR")
+        [ -n "$PROJECT_DIR" ] && args+=(-d "$PROJECT_DIR")
+        bash "$GITHUB_ACTION_PATH/regen.sh" "${args[@]}"
+        echo "sarif=$OUTPUT_DIR/regen-results.sarif.json" >> "$GITHUB_OUTPUT"
+
+    - name: Check severity
+      if: inputs.fail-on != 'none'
+      shell: bash
+      env:
+        SARIF: ${{ steps.scan.outputs.sarif }}
+        FAIL_ON: ${{ inputs.fail-on }}
+      run: python3 "$GITHUB_ACTION_PATH/engine/gate.py" "$SARIF" "$FAIL_ON"

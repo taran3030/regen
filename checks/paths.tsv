@@ -1,0 +1,19 @@
+# Paths that shouldn't be public. Regen reports any that answer 200 with something other than the site's
+# fallback page (single-page apps answer every path with their home page, which isn't a leak).
+# One check per line: path, severity when it's exposed, and why. Tab-separated.
+# To add a check, add a line. CI runs every line against a test server (tests/run.sh).
+.env	critical	Environment files usually hold secrets: database passwords, API keys.
+.git/config	critical	An exposed .git folder lets anyone download the source and its history.
+.git/HEAD	critical	An exposed .git folder lets anyone download the source and its history.
+.DS_Store	low	Lists the files in a folder, including ones that aren't linked anywhere.
+swagger-ui	medium	Interactive API docs map every endpoint for an attacker.
+api-docs	medium	Interactive API docs map every endpoint for an attacker.
+graphql	medium	A public GraphQL endpoint often allows introspection of the whole schema.
+wp-admin	info	A WordPress admin login; worth knowing it's there.
+elmah.axd	high	ASP.NET error logs can include stack traces, cookies and request data.
+trace.axd	high	ASP.NET tracing shows request details, including headers and form values.
+phpinfo.php	high	Shows server configuration, paths and environment variables.
+server-status	medium	Apache's status page shows live requests and client addresses.
+robots.txt	info	Public by design; it sometimes points at paths meant to stay hidden.
+sitemap.xml	info	Public by design.
+.well-known/security.txt	info	Where to report vulnerabilities; good to have.
