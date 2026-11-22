@@ -1,1 +1,7 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" role="img" aria-label="Regen"><rect width="16" height="16" rx="3.5" fill="#081A28"/><g transform="translate(1 1) scale(0.03571) translate(-60 -57)"><path d="M111 104C84 104 68 127 73 161C81 301 159 383 248 438C217 354 177 285 153 156C148 125 139 104 111 104Z" fill="#F29BB4"/><path d="M401 104C428 104 444 127 439 161C431 301 353 383 264 438C295 354 335 285 359 156C364 125 373 104 401 104Z" fill="#F29BB4"/><path d="M169 88C142 88 124 108 129 140C140 235 185 299 248 357C234 276 220 211 207 130C202 103 189 88 169 88Z" fill="#F6F1E7"/><path d="M343 88C370 88 388 108 383 140C372 235 327 299 264 357C278 276 292 211 305 130C310 103 323 88 343 88Z" fill="#F6F1E7"/><path d="M220 92C195 92 183 113 188 141C197 196 219 238 248 274V128C248 106 238 92 220 92Z" fill="#F29BB4"/><path d="M292 92C317 92 329 113 324 141C315 196 293 238 264 274V128C264 106 274 92 292 92Z" fill="#F29BB4"/></g></svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Regen">
+  <rect width="512" height="512" rx="96" fill="#06111C"/>
+  <g transform="translate(73.3 93.6) scale(1.45)">
+    <path fill="#E8F6FA" fill-rule="evenodd" d="M0 0H56V20L76 0H152V60H96L56 100V224H0Z"/>
+    <rect x="180" y="0" width="72" height="224" fill="#3BD5E6"/>
+  </g>
+</svg>

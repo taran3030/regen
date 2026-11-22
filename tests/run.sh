@@ -55,6 +55,8 @@ check "a standard scan runs nuclei with its usual options" "[ -s '$OUT/plain.arg
 check "--no-oast turns off nuclei's out-of-band checks" "grep -qE -- '(^| )-ni( |\$)' '$OUT/quiet.args'"
 check "--web-only skips templates that open other ports" "grep -qF -- '-ept tcp,javascript' '$OUT/quiet.args'"
 
+check "the logo files are what assets/logo/build.py makes" "python3 assets/logo/build.py --check > '$OUT/logo.log' 2>&1"
+
 check "every check file line has three tab-separated fields" "! grep -hv '^#' checks/*.tsv | grep . | awk -F'\t' 'NF != 3' | grep -q ."
 check "every severity is one Regen knows" "! grep -hv '^#' checks/*.tsv | grep . | cut -f2 | grep -vxE 'critical|high|medium|low|info' | grep -q ."
 

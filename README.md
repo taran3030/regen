@@ -1,7 +1,7 @@
 <p align="center">
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="assets/logo/logo-full.svg">
-    <img src="assets/logo/logo-full-light.svg" alt="Regen." width="360">
+    <source media="(prefers-color-scheme: dark)" srcset="assets/logo/logo-animated.svg">
+    <img src="assets/logo/logo-animated-light.svg" alt="regen." width="360">
   </picture>
 </p>
 
