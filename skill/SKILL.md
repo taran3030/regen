@@ -65,8 +65,12 @@ osv-scanner --json --recursive . 2>/dev/null
 Use nuclei for template-based vulnerability detection.
 
 ```bash
-# Run nuclei with standard templates, medium+ severity
-wsl -- nuclei -target "$TARGET" -severity medium,high,critical -silent -jsonl -output /tmp/nuclei-results.jsonl
+# Run nuclei with standard templates, medium+ severity.
+# -ni and -ept tcp,javascript keep it quiet on the user's own network: no callbacks to the public
+# interactsh servers (oast.*), which network monitors flag as malicious, and no templates that open
+# other ports, which they read as a port scan. Drop both only when the user asks for out-of-band
+# checks and knows their network monitor will alert.
+wsl -- nuclei -target "$TARGET" -severity medium,high,critical -ni -ept tcp,javascript -silent -jsonl -output /tmp/nuclei-results.jsonl
 
 # Parse results
 wsl -- cat /tmp/nuclei-results.jsonl | python3 -c "

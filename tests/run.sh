@@ -45,6 +45,16 @@ check "SARIF carries the missing CSP" "grep -q 'regen/headers/missing-content-se
 bash regen.sh scan -t http://127.0.0.1:18733 -p quick -o "$OUT/spa" > "$OUT/spa.log" 2>&1
 check "a single-page app's fallback page isn't reported as exposed files" "! grep -qE '^\[(CRITICAL|HIGH|MEDIUM|LOW|INFO)\]' '$OUT/spa/exposed-paths.txt'"
 
+# nuclei's options: a stand-in nuclei records the arguments each scan passes it.
+mkdir -p "$OUT/bin"
+printf '#!/usr/bin/env bash\necho "$*" >> "$NUCLEI_ARGS"\n' > "$OUT/bin/nuclei"
+chmod +x "$OUT/bin/nuclei"
+PATH="$OUT/bin:$PATH" NUCLEI_ARGS="$OUT/plain.args" bash regen.sh scan -t http://127.0.0.1:18731 -p standard -o "$OUT/plain" > "$OUT/plain.log" 2>&1
+PATH="$OUT/bin:$PATH" NUCLEI_ARGS="$OUT/quiet.args" bash regen.sh scan -t http://127.0.0.1:18731 -p standard --no-oast --web-only -o "$OUT/quiet" > "$OUT/quiet.log" 2>&1
+check "a standard scan runs nuclei with its usual options" "[ -s '$OUT/plain.args' ] && ! grep -qE -- '(^| )-(ni|ept)( |\$)' '$OUT/plain.args'"
+check "--no-oast turns off nuclei's out-of-band checks" "grep -qE -- '(^| )-ni( |\$)' '$OUT/quiet.args'"
+check "--web-only skips templates that open other ports" "grep -qF -- '-ept tcp,javascript' '$OUT/quiet.args'"
+
 check "every check file line has three tab-separated fields" "! grep -hv '^#' checks/*.tsv | grep . | awk -F'\t' 'NF != 3' | grep -q ."
 check "every severity is one Regen knows" "! grep -hv '^#' checks/*.tsv | grep . | cut -f2 | grep -vxE 'critical|high|medium|low|info' | grep -q ."
 
