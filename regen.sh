@@ -3,8 +3,8 @@
 # Axolotl Labs | Find weaknesses. Grow back stronger.
 set -euo pipefail
 
-VERSION="0.1.0"
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+VERSION="$(tr -d '[:space:]' < "$SCRIPT_DIR/VERSION")"  # one version for the script, SARIF and tags
 
 usage() {
     cat <<EOF
