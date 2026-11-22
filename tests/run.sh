@@ -35,6 +35,8 @@ check "regen scan exits cleanly" "[ -f '$OUT/hardened/headers.txt' ]"
 check "a hardened site passes all $headers header checks" "[ \$(grep -c '^\[OK\]' '$OUT/hardened/headers.txt') -eq $headers ]"
 check "a hardened site shows no exposed paths" "! grep -qE '^\[(CRITICAL|HIGH|MEDIUM|LOW|INFO)\]' '$OUT/hardened/exposed-paths.txt'"
 check "every scan writes SARIF" "python3 -c 'import json,sys; json.load(open(sys.argv[1]))' '$OUT/hardened/regen-results.sarif.json'"
+check "the scan banner shows the version in VERSION" "[ -s VERSION ] && grep -qF \"Regen v\$(cat VERSION) \" '$OUT/hardened.log'"
+check "SARIF reports the version in VERSION" "[ -s VERSION ] && python3 -c 'import json,sys; d = json.load(open(sys.argv[1]))[\"runs\"][0][\"tool\"][\"driver\"]; v = open(\"VERSION\").read().strip(); sys.exit(0 if d[\"version\"] == d[\"semanticVersion\"] == v else 1)' '$OUT/hardened/regen-results.sarif.json'"
 
 bash regen.sh scan -t http://127.0.0.1:18732 -p quick -o "$OUT/bare" > "$OUT/bare.log" 2>&1
 check "a bare site fails all $headers header checks" "[ \$(grep -c 'Missing:' '$OUT/bare/headers.txt') -eq $headers ]"

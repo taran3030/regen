@@ -128,7 +128,7 @@ sarif = {
     "$schema": "https://docs.oasis-open.org/sarif/sarif/v2.1.0/cos02/schemas/sarif-schema-2.1.0.json",
     "version": "2.1.0",
     "runs": [{
-        "tool": {"driver": {"name": "Regen", "organization": "Axolotl Labs", "version": "0.1.0"}},
+        "tool": {"driver": {"name": "Regen", "organization": "Axolotl Labs", "version": "1.1.0"}},
         "results": findings_list
     }]
 }

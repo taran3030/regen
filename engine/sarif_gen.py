@@ -12,6 +12,8 @@ import sys
 from pathlib import Path
 from datetime import datetime, timezone
 
+VERSION = (Path(__file__).resolve().parent.parent / "VERSION").read_text().strip()
+
 
 def parse_nuclei(results_dir: Path) -> list[dict]:
     findings = []
@@ -176,8 +178,8 @@ def main():
                 "driver": {
                     "name": "Regen",
                     "organization": "Axolotl Labs",
-                    "version": "0.1.0",
-                    "semanticVersion": "0.1.0",
+                    "version": VERSION,
+                    "semanticVersion": VERSION,
                 }
             },
             "results": all_findings,

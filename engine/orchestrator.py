@@ -17,6 +17,8 @@ from enum import Enum
 from pathlib import Path
 from typing import Optional
 
+VERSION = (Path(__file__).resolve().parent.parent / "VERSION").read_text().strip()
+
 
 class Severity(str, Enum):
     CRITICAL = "critical"
@@ -88,8 +90,8 @@ class ScanResult:
                     "driver": {
                         "name": "Regen",
                         "organization": "Axolotl Labs",
-                        "version": "0.1.0",
-                        "semanticVersion": "0.1.0",
+                        "version": VERSION,
+                        "semanticVersion": VERSION,
                     }
                 },
                 "results": [f.to_sarif_result() for f in self.findings],
