@@ -62,11 +62,20 @@ osv-scanner --json --recursive . 2>/dev/null
 
 ### Phase 3: Web Vulnerability Scanning
 
-Use nuclei for template-based vulnerability detection.
+Use nuclei for template-based vulnerability detection. If there's a Regen checkout, `regen.sh scan -t "$TARGET" -p standard --no-oast --web-only` does all of this and writes SARIF.
+
+This runs on the user's own machine, so keep it quiet on their network. Network monitors flag two nuclei behaviors:
+- Callbacks to the public interactsh servers (`oast.*`) look malicious. `-ni` turns them off.
+- Templates that open other ports look like a port scan. `-ept tcp,javascript` skips the network ones. `-et "$SKIP"` skips the web templates aimed at a fixed port, such as `{{BaseURL}}:4040`.
+
+Drop these only when the user asks for out-of-band checks and knows their monitor will alert.
 
 ```bash
+# Web templates aimed at a fixed port of their own (this also catches a few that only use 443).
+SKIP=$(wsl -e bash -c "grep -rlE '\{\{(BaseURL|RootURL|Host|Hostname)\}\}:[0-9]+|^[[:space:]]+port:[[:space:]]*\"?[0-9]' --include='*.yaml' --exclude-dir=network --exclude-dir=javascript ~/nuclei-templates | paste -sd, -")
+
 # Run nuclei with standard templates, medium+ severity
-wsl -- nuclei -target "$TARGET" -severity medium,high,critical -silent -jsonl -output /tmp/nuclei-results.jsonl
+wsl -- nuclei -target "$TARGET" -severity medium,high,critical -ni -ept tcp,javascript -et "$SKIP" -silent -jsonl -output /tmp/nuclei-results.jsonl
 
 # Parse results
 wsl -- cat /tmp/nuclei-results.jsonl | python3 -c "

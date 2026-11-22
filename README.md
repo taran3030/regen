@@ -1,7 +1,7 @@
 <p align="center">
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="assets/logo/logo-full.svg">
-    <img src="assets/logo/logo-full-light.svg" alt="Regen." width="360">
+    <source media="(prefers-color-scheme: dark)" srcset="assets/logo/logo-animated.svg">
+    <img src="assets/logo/logo-animated-light.svg" alt="regen." width="360">
   </picture>
 </p>
 
@@ -32,6 +32,19 @@ git clone https://github.com/taran3030/regen && cd regen
 | `deps -d <dir>` | Dependency audit only |
 
 Results go to the output folder (`-o`, default `./regen-results`): one text file per check, plus `regen-results.sarif.json`.
+
+### Scanning from your own network
+
+Two nuclei behaviors look like an attack to a home or office network monitor. Turn them off when you scan from your own machine:
+
+- `--no-oast` skips nuclei's out-of-band checks. Those plant a link to ProjectDiscovery's public interactsh servers (`oast.pro`, `oast.live` and others) and wait for a callback, and monitors flag those servers as malicious.
+- `--web-only` skips nuclei templates that connect to ports other than the site's own: the network templates (SSH, databases and so on) and the few web templates aimed at a fixed port, like Spark's UI on 4040. Monitors read those as a port scan, and behind a CDN they only reach the CDN anyway.
+
+```bash
+./regen.sh scan -t https://your-site.example -p standard --no-oast --web-only
+```
+
+The GitHub Action doesn't use these flags, so it runs every template: a CI runner has no monitor to alarm. If nuclei keeps its templates somewhere other than `~/nuclei-templates`, set `NUCLEI_TEMPLATES_DIR` so `--web-only` can find the ones to skip.
 
 ## In GitHub Actions
 

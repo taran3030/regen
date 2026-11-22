@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1344 296" role="img" aria-label="Regen" class="rg">
+  <path class="rg__r" fill="#E8F6FA" fill-rule="evenodd" d="M0 0H56V20L76 0H152V60H96L56 100V224H0Z"/>
+  <path class="rg__k1" fill="#E8F6FA" fill-rule="evenodd" d="M180 0H404V144H236V176H404V224H180ZM236 48H348V96H236Z"/>
+  <path class="rg__k2" fill="#E8F6FA" fill-rule="evenodd" d="M432 0H656V296H432V248H600V176H432ZM488 48H600V128H488Z"/>
+  <path class="rg__k3" fill="#E8F6FA" fill-rule="evenodd" d="M684 0H908V144H740V176H908V224H684ZM740 48H852V96H740Z"/>
+  <path class="rg__k4" fill="#E8F6FA" fill-rule="evenodd" d="M936 0H992V20L1012 0H1160V224H1104V60H1032L992 100V224H936Z"/>
+  <path class="rg__k5" fill="#E8F6FA" fill-rule="evenodd" d="M1188 168H1244V224H1188Z"/>
+  <rect class="rg__cursor" x="1272" y="0" width="72" height="224" fill="#3BD5E6"/>
+</svg>

@@ -26,6 +26,11 @@ Scan options:
   -p, --profile NAME   Scan profile: quick|standard|full (default: standard)
   -o, --output DIR     Output directory (default: ./regen-results)
   -d, --project DIR    Local project directory (for deps scan)
+  --no-oast            Skip nuclei's out-of-band checks, which call ProjectDiscovery's
+                       public interactsh servers (oast.*). Network monitors flag those.
+  --web-only           Skip nuclei templates that connect to ports other than the site's
+                       own: network and javascript templates, and web templates aimed at
+                       a fixed port such as 4040. Monitors read those as a port scan.
 
 Examples:
   regen scan -t https://myapp.azurewebsites.net -p full
@@ -165,9 +170,26 @@ except: pass
     echo "---"
 }
 
+# Web templates that send requests to a fixed port of their own, like {{BaseURL}}:4040 for Spark's UI,
+# open that port on the target even when network templates are off. List the ones that name any port
+# besides 80 and 443 from nuclei's template folder, comma-separated, for -et. The network and javascript
+# folders are left out: -ept covers those.
+off_port_templates() {
+    local dir="${NUCLEI_TEMPLATES_DIR:-$HOME/nuclei-templates}"
+    local fixed='\}\}:[0-9]+|^[[:space:]]+port:[[:space:]]*"?[0-9]+'
+    [ -d "$dir" ] || return 0
+    grep -rlE '\{\{(BaseURL|RootURL|Host|Hostname)\}\}:[0-9]+|^[[:space:]]+port:[[:space:]]*"?[0-9]' \
+        --include='*.yaml' --exclude-dir=network --exclude-dir=javascript "$dir" 2>/dev/null | sort |
+    while read -r f; do
+        grep -oE "$fixed" "$f" | grep -oE '[0-9]+$' | grep -qvxE '80|443' && echo "$f"
+    done | paste -sd, - || true
+}
+
 scan_nuclei() {
     local target="$1"
     local output_dir="$2"
+    local no_oast="${3:-}"
+    local web_only="${4:-}"
     echo "[regen] Phase 3: Vulnerability scanning with nuclei..."
     echo "---"
 
@@ -176,12 +198,25 @@ scan_nuclei() {
         return 0
     fi
 
-    nuclei -target "$target" \
-        -severity medium,high,critical \
-        -silent \
-        -jsonl \
+    local opts=(-severity medium,high,critical -silent -jsonl -timeout 10)
+    if [ -n "$no_oast" ]; then opts+=(-ni); fi
+    if [ -n "$web_only" ]; then opts+=(-ept tcp,javascript); fi
+    echo "[regen] nuclei options: ${opts[*]}"
+    if [ -n "$web_only" ]; then
+        # The list comes from the downloaded templates, so get them first if this is the first run.
+        [ -d "${NUCLEI_TEMPLATES_DIR:-$HOME/nuclei-templates}" ] || nuclei -update-templates -silent >/dev/null 2>&1 || true
+        local skip
+        skip=$(off_port_templates)
+        if [ -n "$skip" ]; then
+            opts+=(-et "$skip")
+            echo "[regen] --web-only: also skipping $(tr ',' '\n' <<< "$skip" | wc -l | tr -d ' ') web templates that use another port"
+        elif [ ! -d "${NUCLEI_TEMPLATES_DIR:-$HOME/nuclei-templates}" ]; then
+            echo "[WARN] --web-only couldn't find nuclei's templates in ${NUCLEI_TEMPLATES_DIR:-$HOME/nuclei-templates}, so web templates aimed at other ports will still run. Set NUCLEI_TEMPLATES_DIR to the folder nuclei uses."
+        fi
+    fi
+
+    nuclei -target "$target" "${opts[@]}" \
         -output "$output_dir/nuclei-results.jsonl" \
-        -timeout 10 \
         2>/dev/null || true
 
     if [ -f "$output_dir/nuclei-results.jsonl" ]; then
@@ -212,7 +247,7 @@ generate_sarif() {
 }
 
 cmd_scan() {
-    local target="" scope="" profile="standard" output_dir="./regen-results" project_dir=""
+    local target="" scope="" profile="standard" output_dir="./regen-results" project_dir="" no_oast="" web_only=""
 
     while [[ $# -gt 0 ]]; do
         case "$1" in
@@ -221,6 +256,8 @@ cmd_scan() {
             -p|--profile) profile="$2"; shift 2 ;;
             -o|--output) output_dir="$2"; shift 2 ;;
             -d|--project) project_dir="$2"; shift 2 ;;
+            --no-oast) no_oast=1; shift ;;
+            --web-only) web_only=1; shift ;;
             *) echo "Unknown option: $1"; usage; exit 1 ;;
         esac
     done
@@ -258,7 +295,7 @@ cmd_scan() {
 
     # Phase 3: Nuclei
     if [ "$profile" = "standard" ] || [ "$profile" = "full" ]; then
-        scan_nuclei "$target" "$output_dir"
+        scan_nuclei "$target" "$output_dir" "$no_oast" "$web_only"
     fi
 
     generate_sarif "$output_dir" "$target"

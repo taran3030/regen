@@ -1,138 +1,248 @@
-"""Builds Regen's logo files from one canonical mark and real Gabarito ExtraBold outlines.
+"""Builds Regen's logo files: an r and a block cursor that types out "regen." and backspaces.
 
-    python assets/logo/build.py <gabarito-500-800.woff2>
+    python3 assets/logo/build.py           # write every file
+    python3 assets/logo/build.py --check   # exit 1 if a committed file differs from what this makes
 
-The mark: six axolotl gills fanning up from one point to make a shield (concept 2 in the Figma file "Regen brand").
+The letters are drawn, not set in a font (concept 1, round two, in the Figma file "Regen brand"). One grid:
+x-height 224, vertical stem 56, horizontal bar 48, the g's descender to 296, 28 between letters. The r and n
+share a 45-degree notch where the arm leaves the stem. The cursor is the only colored part.
+
+Files:
+    logo-mark(-light).svg       r and the cursor
+    logo-full(-light).svg       regen. and the cursor
+    logo-wordmark(-light).svg   regen. on its own
+    logo-white.svg, logo-black.svg   regen. and the cursor in one color
+    logo-icon.svg, favicon.svg  the mark on a midnight tile
+    logo-animated(-light).svg   the typing loop, self-contained, for the README
+    typing.svg, typing.css      the same logo with classes, and the styles that animate it, for web pages
 """
 import pathlib
 import sys
 
-from fontTools.pens.svgPathPen import SVGPathPen
-from fontTools.pens.transformPen import TransformPen
-from fontTools.ttLib import TTFont
-from fontTools.varLib.instancer import instantiateVariableFont
-
 OUT = pathlib.Path(__file__).parent
 
-# Palette: Axolotl Labs Night canal (dark) and Leucistic (light).
-# "outer" and "inner" are the pink gill pairs, "middle" the cream pair, "dot" the gold heart and period.
-DARK = {"ground": "#081A28", "outer": "#F29BB4", "middle": "#F6F1E7", "inner": "#F29BB4", "ink": "#F6F1E7", "dot": "#E9B949"}
-LIGHT = {"ground": "#FBEFF1", "outer": "#D45F82", "middle": "#1B1F3B", "inner": "#D45F82", "ink": "#1B1F3B", "dot": "#B07D12"}
+DARK = {"ink": "#E8F6FA", "cursor": "#3BD5E6"}  # frost and scan cyan, on midnight
+LIGHT = {"ink": "#06111C", "cursor": "#0A8FA3"}  # cyan is too faint on white, so a deeper one
+MIDNIGHT = "#06111C"
 
-# ---------------------------------------------------------------- the mark (512 x 512 design grid, canonical)
+# ---------------------------------------------------------------- the letters
 
-# Six gills fanning up from one point, which together make a shield: concept 2 from the Figma file "Regen
-# brand", with the outer pair raised so all six tips sit on one arc (the shield's crest), and a larger heart.
-OUTER_L = "M111 104C84 104 68 127 73 161C81 301 159 383 248 438C217 354 177 285 153 156C148 125 139 104 111 104Z"
-OUTER_R = "M401 104C428 104 444 127 439 161C431 301 353 383 264 438C295 354 335 285 359 156C364 125 373 104 401 104Z"
-MIDDLE_L = "M169 88C142 88 124 108 129 140C140 235 185 299 248 357C234 276 220 211 207 130C202 103 189 88 169 88Z"
-MIDDLE_R = "M343 88C370 88 388 108 383 140C372 235 327 299 264 357C278 276 292 211 305 130C310 103 323 88 343 88Z"
-INNER_L = "M220 92C195 92 183 113 188 141C197 196 219 238 248 274V128C248 106 238 92 220 92Z"
-INNER_R = "M292 92C317 92 329 113 324 141C315 196 293 238 264 274V128C264 106 274 92 292 92Z"
-HEART = "M256 281L272 305L256 329L240 305Z"
-# The mark's box on the grid: x 68 to 444, y 88 to 438. Square it around the center for the 64 x 64 mark.
-GRID = (60, 57, 392)  # x, y, size of the square crop
-
-
-def mark_layers(c, mono=False):
-    if not mono:
-        return "".join(
-            f'<path d="{d}" fill="{c[role]}"/>'
-            for d, role in (
-                (OUTER_L, "outer"), (OUTER_R, "outer"), (MIDDLE_L, "middle"), (MIDDLE_R, "middle"),
-                (INNER_L, "inner"), (INNER_R, "inner"), (HEART, "dot"),
-            )
-        )
-    # One color: the gills overlap, so cut a thin gap around the middle pair and around the heart, or the
-    # six gills merge into one blob.
-    col = c["outer"]
-    gap = "".join(f'<path d="{d}" fill="black" stroke="black" stroke-width="16" stroke-linejoin="round"/>' for d in (MIDDLE_L, MIDDLE_R))
-    heart_gap = f'<path d="{HEART}" fill="black" stroke="black" stroke-width="16" stroke-linejoin="round"/>'
-    return (
-        f'<mask id="regen-gap" maskUnits="userSpaceOnUse" x="0" y="0" width="512" height="512"><rect width="512" height="512" fill="white"/>{gap}{heart_gap}</mask>'
-        f'<g mask="url(#regen-gap)">' + "".join(f'<path d="{d}" fill="{col}"/>' for d in (OUTER_L, OUTER_R, INNER_L, INNER_R)) + "</g>"
-        + "".join(f'<path d="{d}" fill="{col}"/>' for d in (MIDDLE_L, MIDDLE_R, HEART))
-    )
+# Each glyph: advance, outer outline, holes. y grows down; the baseline is y = 224.
+GLYPHS = {
+    "r": (152, [(0, 0), (56, 0), (56, 20), (76, 0), (152, 0), (152, 60), (96, 60), (56, 100), (56, 224), (0, 224)], []),
+    "e": (224, [(0, 0), (224, 0), (224, 144), (56, 144), (56, 176), (224, 176), (224, 224), (0, 224)],
+          [[(56, 48), (168, 48), (168, 96), (56, 96)]]),
+    "g": (224, [(0, 0), (224, 0), (224, 296), (0, 296), (0, 248), (168, 248), (168, 176), (0, 176)],
+          [[(56, 48), (168, 48), (168, 128), (56, 128)]]),
+    "n": (224, [(0, 0), (56, 0), (56, 20), (76, 0), (224, 0), (224, 224), (168, 224), (168, 60), (96, 60),
+                (56, 100), (56, 224), (0, 224)], []),
+    ".": (56, [(0, 168), (56, 168), (56, 224), (0, 224)], []),
+}
+NAME = "regen."
+GAP = 28
+CURSOR_W, CURSOR_H = 72, 224
+DESCENDER = 296
 
 
-def mark_group(c, size, x=0, y=0, mono=False):
-    """The mark scaled to a size x size square at (x, y)."""
-    gx, gy, gs = GRID
-    s = size / gs
-    return f'<g transform="translate({x:g} {y:g}) scale({s:.5f}) translate({-gx} {-gy})">{mark_layers(c, mono)}</g>'
+def layout(text):
+    """Where each letter starts, and where the cursor sits after them."""
+    x, placed = 0, []
+    for ch in text:
+        placed.append((ch, x))
+        x += GLYPHS[ch][0] + GAP
+    return placed, x
 
 
-# ---------------------------------------------------------------- the wordmark, from real outlines
+FULL_CURSOR_X = layout(NAME)[1]          # 1272
+FULL_W = FULL_CURSOR_X + CURSOR_W        # 1344
+WORDMARK_W = FULL_CURSOR_X - GAP         # 1244
+MARK_W = layout("r")[1] + CURSOR_W       # 252
 
 
-def wordmark_paths(font_path):
-    """'Regen' as one outlined path in font units (y up) plus the period's bounds, at weight 800."""
-    font = TTFont(font_path)
-    if "fvar" in font:
-        font = instantiateVariableFont(font, {"wght": 800})
-    cmap = font.getBestCmap()
-    gs = font.getGlyphSet()
-    hmtx = font["hmtx"]
-    # Gabarito's kerning lives in GPOS; at display size the default spacing tightened a touch reads best.
-    track = -12
-    x = 0
-    pen = SVGPathPen(gs)
-    for ch in "Regen":
-        name = cmap[ord(ch)]
-        gs[name].draw(TransformPen(pen, (1, 0, 0, 1, x, 0)))
-        x += hmtx[name][0] + track
-    word = pen.getCommands()
-    # The period as its own path, so it can be gold.
-    dot_pen = SVGPathPen(gs)
-    name = cmap[ord(".")]
-    gs[name].draw(TransformPen(dot_pen, (1, 0, 0, 1, x - 34, 0)))
-    width = x - 34 + hmtx[name][0]
-    upm = font["head"].unitsPerEm
-    cap = font["OS/2"].sCapHeight or int(upm * 0.7)
-    return word, dot_pen.getCommands(), width, cap
+def outline(points, dx):
+    """A closed outline as compact path data, shifted right by dx."""
+    (x0, y0), *rest = points
+    d, px, py = [f"M{x0 + dx} {y0}"], x0, y0
+    for x, y in rest:
+        if y == py:
+            d.append(f"H{x + dx}")
+        elif x == px:
+            d.append(f"V{y}")
+        else:
+            d.append(f"L{x + dx} {y}")
+        px, py = x, y
+    return "".join(d) + "Z"
 
 
-def svg(view_w, view_h, body, label="Regen"):
-    return f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {view_w:g} {view_h:g}" role="img" aria-label="{label}">{body}</svg>\n'
+def glyph_path(ch, dx):
+    _, outer, holes = GLYPHS[ch]
+    return "".join(outline(p, dx) for p in [outer, *holes])
 
 
-def main(font_path):
-    word, dot, wwidth, cap = wordmark_paths(font_path)
+def letters(text, ink, classed=False):
+    out = []
+    for i, (ch, x) in enumerate(layout(text)[0]):
+        cls = f' class="rg__{"r" if i == 0 else f"k{i}"}"' if classed else ""
+        out.append(f'<path{cls} fill="{ink}" fill-rule="evenodd" d="{glyph_path(ch, x)}"/>')
+    return out
 
-    def wordmark_group(c, height, x0, baseline):
-        s = height / cap
-        return (
-            f'<g transform="translate({x0:g} {baseline:g}) scale({s:.5f} {-s:.5f})">'
-            f'<path d="{word}" fill="{c["ink"]}"/><path d="{dot}" fill="{c["dot"]}"/></g>'
-        ), wwidth * s
 
-    files = {}
-    # logo-mark: the canonical 64 x 64 mark, dark colorway on transparent.
-    files["logo-mark.svg"] = svg(64, 64, mark_group(DARK, 64))
-    files["logo-mark-light.svg"] = svg(64, 64, mark_group(LIGHT, 64))
-    # logo-full: mark + wordmark, 320 x 72.
-    for name, c in (("logo-full.svg", DARK), ("logo-full-light.svg", LIGHT)):
-        g, _ = wordmark_group(c, 34, 80, 53)
-        files[name] = svg(320, 72, mark_group(c, 64, 4, 4) + g)
-    # logo-wordmark: text only, 180 x 40.
-    for name, c in (("logo-wordmark.svg", DARK), ("logo-wordmark-light.svg", LIGHT)):
-        g, w = wordmark_group(c, 26, 4, 33)
-        files[name] = svg(max(180, w + 8), 40, g)
-    # logo-icon: 512 x 512 app icon on the Night canal ground.
-    files["logo-icon.svg"] = svg(512, 512, f'<rect width="512" height="512" rx="112" fill="{DARK["ground"]}"/>' + mark_group(DARK, 340, 86, 86))
-    # favicon: 16 x 16 on the ground. Six gills still read at this size; the heart is dropped.
-    fav_layers = "".join(f'<path d="{d}" fill="{DARK[r]}"/>' for d, r in ((OUTER_L, "outer"), (OUTER_R, "outer"), (MIDDLE_L, "middle"), (MIDDLE_R, "middle"), (INNER_L, "inner"), (INNER_R, "inner")))
-    gx, gy, gs = GRID
-    files["favicon.svg"] = svg(16, 16, f'<rect width="16" height="16" rx="3.5" fill="{DARK["ground"]}"/><g transform="translate(1 1) scale({14 / gs:.5f}) translate({-gx} {-gy})">{fav_layers}</g>')
-    # Monochrome: same geometry, one color.
-    for name, col in (("logo-white.svg", "#FFFFFF"), ("logo-black.svg", "#000000")):
-        mono = {k: col for k in DARK}
-        g, _ = wordmark_group(mono, 34, 80, 53)
-        files[name] = svg(320, 72, mark_group(mono, 64, 4, 4, mono=True) + g)
-    for name, text in files.items():
-        (OUT / name).write_text(text, encoding="utf-8")
-    print(f"wrote {len(files)} files; wordmark {wwidth} units wide, cap height {cap}")
+def cursor(x, colour, classed=False):
+    cls = ' class="rg__cursor"' if classed else ""
+    return f'<rect{cls} x="{x}" y="0" width="{CURSOR_W}" height="{CURSOR_H}" fill="{colour}"/>'
+
+
+def svg(view_w, view_h, body, label="Regen", extra=""):
+    inner = "\n".join(f"  {line}" for line in body)
+    return (f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {view_w} {view_h}" '
+            f'role="img" aria-label="{label}"{extra}>\n{inner}\n</svg>\n')
+
+
+def tile(scale, radius):
+    """The mark centered on a 512 midnight tile."""
+    w, h = MARK_W * scale, CURSOR_H * scale
+    tx, ty = (512 - w) / 2, (512 - h) / 2
+    g = letters("r", DARK["ink"]) + [cursor(layout("r")[1], DARK["cursor"])]
+    body = [f'<rect width="512" height="512" rx="{radius}" fill="{MIDNIGHT}"/>',
+            f'<g transform="translate({tx:g} {ty:g}) scale({scale:g})">', *[f"  {x}" for x in g], "</g>"]
+    return svg(512, 512, body)
+
+
+# ---------------------------------------------------------------- the animation
+
+BLINK = 530  # ms, the usual terminal blink
+TYPED = [("re", 150), ("reg", 115), ("rege", 170), ("regen", 135), ("regen.", 240)]  # uneven, like a person
+
+# (text on screen, cursor showing, ms). The cursor stays solid while keys are pressed.
+LOOP = (
+    [("r", True, BLINK), ("r", False, BLINK), ("r", True, BLINK), ("r", False, BLINK), ("r", True, 260)]
+    + [(t, True, ms) for t, ms in TYPED]
+    + [("regen.", False, BLINK), ("regen.", True, BLINK), ("regen.", False, BLINK), ("regen.", True, BLINK),
+       ("regen.", False, BLINK), ("regen.", True, 300)]
+    + [("regen", True, 75), ("rege", True, 75), ("reg", True, 75), ("re", True, 75)]  # backspace, like a held key
+)
+# Played once: two blinks, the typing, three blinks, then it rests on the name with a steady cursor.
+ONCE = (
+    LOOP[:5] + [(t, True, ms) for t, ms in TYPED]
+    + [("regen.", False, BLINK), ("regen.", True, BLINK), ("regen.", False, BLINK), ("regen.", True, BLINK),
+       ("regen.", False, BLINK), ("regen.", True, 0)]
+)
+
+
+def cursor_shift(text):
+    """How far left of its finished position the cursor sits after this text."""
+    return layout(text)[1] - FULL_CURSOR_X
+
+
+def keyframes(name, states, value):
+    total = sum(ms for _, _, ms in states)
+    frames, t = [], 0
+    for text, on, ms in states:
+        v = value(text, on)
+        if not frames or frames[-1][1] != v:
+            frames.append((t, v))
+        t += ms
+    if frames[-1][0] != total:
+        frames.append((total, value(*states[-1][:2])))
+
+    def pct(ms):
+        return f"{100 * ms / total:.3f}".rstrip("0").rstrip(".") + "%"
+
+    rows = "\n".join(f"  {pct(ms)} {{ {v} }}" for ms, v in frames)
+    return f"@keyframes {name} {{\n{rows}\n}}"
+
+
+def animation_css(mode, states, selector, timing):
+    """Keyframes and rules for one mode: 'loop' or 'once'."""
+    secs = f"{sum(ms for _, _, ms in states) / 1000:g}s"
+    blocks, rules = [], []
+    for i in range(1, len(NAME)):
+        blocks.append(keyframes(f"rg-{mode}-k{i}", states, lambda text, on, i=i: f"opacity: {1 if len(text) > i else 0};"))
+        rules.append(f"{selector} .rg__k{i} {{ animation: rg-{mode}-k{i} {secs} step-end {timing}; }}")
+    blocks.append(keyframes(f"rg-{mode}-cursor", states,
+                            lambda text, on: f"opacity: {1 if on else 0}; transform: translateX({cursor_shift(text)}px);"))
+    rules.append(f"{selector} .rg__cursor {{ animation: rg-{mode}-cursor {secs} step-end {timing}; }}")
+    return rules, blocks
+
+
+def reduced_motion(selector):
+    # !important so it also beats .rg-armed, which hides the letters while the logo waits to play.
+    parts = ", ".join(f"{selector} .rg__k{i}" for i in range(1, len(NAME))) + f", {selector} .rg__cursor"
+    return ("@media (prefers-reduced-motion: reduce) {\n"
+            f"  {parts} {{ animation: none !important; opacity: 1 !important; transform: none !important; }}\n}}")
+
+
+def typing_css():
+    loop_rules, loop_frames = animation_css("loop", LOOP, ".rg--loop", "infinite")
+    once_rules, once_frames = animation_css("once", ONCE, ".rg--once.is-playing", "forwards")
+    waiting = ".rg-armed .rg--once:not(.is-playing)"
+    armed = [f"{waiting} .rg__k{i} {{ opacity: 0; }}" for i in range(1, len(NAME))]
+    armed.append(f"{waiting} .rg__cursor {{ transform: translateX({cursor_shift('r')}px); }}")
+    return "\n".join([
+        "/* Regen's cursor logo. Generated by assets/logo/build.py in github.com/taran3030/regen; edit it there. */",
+        "/* Without these classes, or with reduced motion, the logo is the finished regen. and a still cursor. */",
+        "/* .rg--loop types and backspaces forever. .rg--once waits as r while an ancestor has .rg-armed, then */",
+        "/* plays once when the logo gets .is-playing, and rests on regen. Put .rg-armed on <html> from a script */",
+        "/* in <head>, so the page never draws the finished logo before it plays. */",
+        "",
+        *loop_rules, "", *armed, *once_rules, "", *loop_frames, "", *once_frames, "", reduced_motion(".rg"), "",
+    ])
+
+
+def animated_svg(colours):
+    rules, frames = animation_css("loop", LOOP, ".rg--loop", "infinite")
+    style = "\n".join(["<style>", *rules, *frames, reduced_motion(".rg"), "</style>"])
+    body = [*style.split("\n"), *letters(NAME, colours["ink"], classed=True),
+            cursor(FULL_CURSOR_X, colours["cursor"], classed=True)]
+    return svg(FULL_W, DESCENDER, body, extra=' class="rg rg--loop"')
+
+
+# ---------------------------------------------------------------- the files
+
+
+def files():
+    full = lambda c: letters(NAME, c["ink"]) + [cursor(FULL_CURSOR_X, c["cursor"])]
+    mono = lambda colour: full({"ink": colour, "cursor": colour})
+    mark = lambda c: letters("r", c["ink"]) + [cursor(layout("r")[1], c["cursor"])]
+    return {
+        "logo-mark.svg": svg(MARK_W, CURSOR_H, mark(DARK)),
+        "logo-mark-light.svg": svg(MARK_W, CURSOR_H, mark(LIGHT)),
+        "logo-full.svg": svg(FULL_W, DESCENDER, full(DARK)),
+        "logo-full-light.svg": svg(FULL_W, DESCENDER, full(LIGHT)),
+        "logo-wordmark.svg": svg(WORDMARK_W, DESCENDER, letters(NAME, DARK["ink"])),
+        "logo-wordmark-light.svg": svg(WORDMARK_W, DESCENDER, letters(NAME, LIGHT["ink"])),
+        "logo-white.svg": svg(FULL_W, DESCENDER, mono("#FFFFFF")),
+        "logo-black.svg": svg(FULL_W, DESCENDER, mono("#000000")),
+        "logo-icon.svg": tile(1.2, 112),
+        "favicon.svg": tile(1.45, 96),
+        "logo-animated.svg": animated_svg(DARK),
+        "logo-animated-light.svg": animated_svg(LIGHT),
+        "typing.svg": svg(FULL_W, DESCENDER, letters(NAME, DARK["ink"], classed=True)
+                          + [cursor(FULL_CURSOR_X, DARK["cursor"], classed=True)], extra=' class="rg"'),
+        "typing.css": typing_css(),
+    }
+
+
+def main():
+    check = "--check" in sys.argv[1:]
+    stale = []
+    for name, text in files().items():
+        path = OUT / name
+        if check:
+            current = path.read_text(encoding="utf-8").replace("\r\n", "\n") if path.exists() else None
+            if current != text:
+                stale.append(name)
+        else:
+            path.write_text(text, encoding="utf-8", newline="\n")
+    if check:
+        if stale:
+            print("Out of date (run python3 assets/logo/build.py): " + ", ".join(stale))
+            return 1
+        print("Logo files match build.py.")
+        return 0
+    print(f"Wrote {len(files())} files to {OUT}")
+    return 0
 
 
 if __name__ == "__main__":
-    main(sys.argv[1])
+    sys.exit(main())
