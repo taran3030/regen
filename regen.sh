@@ -17,6 +17,11 @@ Commands:
   scan       Run a security scan against a target
   recon      Reconnaissance only (headers, tech stack, exposed paths)
   deps       Dependency vulnerability audit (local project)
+  exploit    Active exploit testing against a target (non-destructive)
+  deep       Deep manual pentest (10-phase red team)
+  azure      Zero-knowledge Azure infrastructure breach attempt
+  pentest    Full scan + exploit + report pipeline (Python CLI)
+  full       Full assessment: pentest + deep + azure (CI/CD pipeline)
   report     Generate report from previous scan results
   install    Install scanner dependencies (nuclei, nmap, osv-scanner)
 
@@ -36,6 +41,7 @@ Examples:
   regen scan -t https://myapp.azurewebsites.net -p full
   regen deps -d ./my-project
   regen recon -t https://staging.example.com
+  regen exploit -t https://myapp.azurewebsites.net
 EOF
 }
 
@@ -236,6 +242,136 @@ with open('$output_dir/nuclei-results.jsonl') as f:
     echo "---"
 }
 
+scan_auth() {
+    local target="$1"
+    local output_dir="$2"
+    local depth="${3:-standard}"
+    echo "[regen] Phase: Authentication testing (depth: $depth)"
+    echo "---"
+    python3 -c "
+import sys; sys.path.insert(0, '${SCRIPT_DIR}')
+from scanners.auth import run_auth_tests
+for f in run_auth_tests('$target', '$depth'):
+    sev = f['severity'].upper()
+    print(f'[{sev}] {f[\"title\"]}')
+    if sev != 'INFO': print(f'  {f[\"description\"][:120]}')
+" 2>&1 | tee "$output_dir/auth-results.txt"
+    echo "---"
+}
+
+scan_injection() {
+    local target="$1"
+    local output_dir="$2"
+    local depth="${3:-standard}"
+    echo "[regen] Phase: Injection testing (depth: $depth)"
+    echo "---"
+    python3 -c "
+import sys; sys.path.insert(0, '${SCRIPT_DIR}')
+from scanners.injection import run_injection_tests
+for f in run_injection_tests('$target', '$depth'):
+    sev = f['severity'].upper()
+    print(f'[{sev}] {f[\"title\"]}')
+    if sev != 'INFO': print(f'  {f[\"description\"][:120]}')
+" 2>&1 | tee "$output_dir/injection-results.txt"
+    echo "---"
+}
+
+scan_tls() {
+    local target="$1"
+    local output_dir="$2"
+    local depth="${3:-standard}"
+    echo "[regen] Phase: TLS analysis (depth: $depth)"
+    echo "---"
+    python3 -c "
+import sys; sys.path.insert(0, '${SCRIPT_DIR}')
+from scanners.tls import run_tls_tests
+for f in run_tls_tests('$target', '$depth'):
+    sev = f['severity'].upper()
+    print(f'[{sev}] {f[\"title\"]}')
+    if sev != 'INFO': print(f'  {f[\"description\"][:120]}')
+" 2>&1 | tee "$output_dir/tls-results.txt"
+    echo "---"
+}
+
+scan_api() {
+    local target="$1"
+    local output_dir="$2"
+    local depth="${3:-standard}"
+    echo "[regen] Phase: API surface testing (depth: $depth)"
+    echo "---"
+    python3 -c "
+import sys; sys.path.insert(0, '${SCRIPT_DIR}')
+from scanners.api_fuzzer import run_api_tests
+for f in run_api_tests('$target', '$depth'):
+    sev = f['severity'].upper()
+    print(f'[{sev}] {f[\"title\"]}')
+    if sev != 'INFO': print(f'  {f[\"description\"][:120]}')
+" 2>&1 | tee "$output_dir/api-results.txt"
+    echo "---"
+}
+
+scan_ssrf() {
+    local target="$1"
+    local output_dir="$2"
+    local depth="${3:-standard}"
+    echo "[regen] Phase: SSRF testing (depth: $depth)"
+    echo "---"
+    python3 -c "
+import sys; sys.path.insert(0, '${SCRIPT_DIR}')
+from scanners.ssrf import run_ssrf_tests
+for f in run_ssrf_tests('$target', '$depth'):
+    sev = f['severity'].upper()
+    print(f'[{sev}] {f[\"title\"]}')
+    if sev != 'INFO': print(f'  {f[\"description\"][:120]}')
+" 2>&1 | tee "$output_dir/ssrf-results.txt"
+    echo "---"
+}
+
+scan_nosql() {
+    local target="$1"
+    local output_dir="$2"
+    local depth="${3:-standard}"
+    echo "[regen] Phase: NoSQL injection testing (depth: $depth)"
+    echo "---"
+    python3 -c "
+import sys; sys.path.insert(0, '${SCRIPT_DIR}')
+from scanners.nosql import run_nosql_tests
+for f in run_nosql_tests('$target', '$depth'):
+    sev = f['severity'].upper()
+    print(f'[{sev}] {f[\"title\"]}')
+    if sev != 'INFO': print(f'  {f[\"description\"][:120]}')
+" 2>&1 | tee "$output_dir/nosql-results.txt"
+    echo "---"
+}
+
+scan_graphql() {
+    local target="$1"
+    local output_dir="$2"
+    local depth="${3:-standard}"
+    echo "[regen] Phase: GraphQL testing (depth: $depth)"
+    echo "---"
+    python3 -c "
+import sys; sys.path.insert(0, '${SCRIPT_DIR}')
+from scanners.graphql import run_graphql_tests
+for f in run_graphql_tests('$target', '$depth'):
+    sev = f['severity'].upper()
+    print(f'[{sev}] {f[\"title\"]}')
+    if sev != 'INFO': print(f'  {f[\"description\"][:120]}')
+" 2>&1 | tee "$output_dir/graphql-results.txt"
+    echo "---"
+}
+
+scan_exploits() {
+    local target="$1"
+    local output_dir="$2"
+    echo "[regen] Phase: Active exploit testing"
+    echo "---"
+
+    python3 "${SCRIPT_DIR}/scanners/exploit.py" "$target" 2>&1 | tee "$output_dir/exploit-results.txt"
+
+    echo "---"
+}
+
 generate_sarif() {
     local output_dir="$1"
     local target="$2"
@@ -278,24 +414,49 @@ cmd_scan() {
     echo "============================================"
     echo ""
 
-    # Phase 1: Recon
+    # Phase 1: Recon (all profiles)
     scan_headers "$target" | tee "$output_dir/headers.txt"
     scan_exposed_paths "$target" | tee "$output_dir/exposed-paths.txt"
 
     if [ "$profile" = "quick" ]; then
-        # Quick: headers + deps only
+        # Quick: recon + TLS + deps
+        scan_tls "$target" "$output_dir" "quick"
         [ -n "$project_dir" ] && scan_deps "$project_dir" "$output_dir"
         generate_sarif "$output_dir" "$target"
         echo "[regen] Quick scan complete."
         return
     fi
 
-    # Phase 2: Deps (if project dir provided)
+    # Phase 2: TLS (standard+)
+    scan_tls "$target" "$output_dir" "$profile"
+
+    # Phase 3: Deps (if project dir provided)
     [ -n "$project_dir" ] && scan_deps "$project_dir" "$output_dir"
 
-    # Phase 3: Nuclei
-    if [ "$profile" = "standard" ] || [ "$profile" = "full" ]; then
-        scan_nuclei "$target" "$output_dir" "$no_oast" "$web_only"
+    # Phase 4: Auth testing (standard+)
+    scan_auth "$target" "$output_dir" "$profile"
+
+    # Phase 5: Injection testing (standard+)
+    scan_injection "$target" "$output_dir" "$profile"
+
+    # Phase 6: SSRF testing (standard+)
+    scan_ssrf "$target" "$output_dir" "$profile"
+
+    # Phase 7: NoSQL injection (standard+)
+    scan_nosql "$target" "$output_dir" "$profile"
+
+    # Phase 8: GraphQL testing (standard+)
+    scan_graphql "$target" "$output_dir" "$profile"
+
+    # Phase 9: API surface testing (standard+)
+    scan_api "$target" "$output_dir" "$profile"
+
+    # Phase 10: Nuclei (standard+)
+    scan_nuclei "$target" "$output_dir" "$no_oast" "$web_only"
+
+    # Phase 11: Active exploit testing (full only)
+    if [ "$profile" = "full" ]; then
+        scan_exploits "$target" "$output_dir"
     fi
 
     generate_sarif "$output_dir" "$target"
@@ -332,11 +493,40 @@ cmd_deps() {
     scan_deps "$project_dir" "$output_dir"
 }
 
+cmd_exploit() {
+    local target="" output_dir="./regen-results"
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            -t|--target) target="$2"; shift 2 ;;
+            -o|--output) output_dir="$2"; shift 2 ;;
+            *) echo "Unknown option: $1"; exit 1 ;;
+        esac
+    done
+    [ -z "$target" ] && { echo "[regen] --target required"; exit 1; }
+    mkdir -p "$output_dir"
+    echo "============================================"
+    echo "  Regen v${VERSION} — Exploit Testing"
+    echo "  Target: $target"
+    echo "  Output: $output_dir"
+    echo "  Started: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    echo "============================================"
+    echo ""
+    scan_exploits "$target" "$output_dir"
+    echo ""
+    echo "[regen] Exploit testing complete. Results in $output_dir/"
+}
+
 # Main dispatcher
 case "${1:-}" in
     scan)    shift; check_tools && cmd_scan "$@" ;;
     recon)   shift; cmd_recon "$@" ;;
     deps)    shift; cmd_deps "$@" ;;
+    exploit) shift; check_tools && cmd_exploit "$@" ;;
+    deep)    shift; cd "$SCRIPT_DIR" && python3 -m agent.cli deep "$@" ;;
+    azure)   shift; cd "$SCRIPT_DIR" && python3 -m agent.cli azure "$@" ;;
+    pentest) shift; cd "$SCRIPT_DIR" && python3 -m agent.cli pentest "$@" ;;
+    full)    shift; cd "$SCRIPT_DIR" && python3 -m agent.cli full "$@" ;;
+    agent)   shift; cd "$SCRIPT_DIR" && python3 -m agent.cli agent "$@" ;;
     install) install_deps ;;
     help|-h|--help) usage ;;
     "") usage ;;

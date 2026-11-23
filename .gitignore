@@ -1,5 +1,8 @@
 # Scan results stay on your machine.
-regen-results/
+regen-results*/
+regen-pentest-*/
+deep-pentest-*/
+azure-breach-*/
 reports/
 security/scans/
 *.sarif.json
